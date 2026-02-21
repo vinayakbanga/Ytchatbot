@@ -7,6 +7,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough, RunnableLambda
 from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
+from operator import itemgetter
 
 # Load environment variables
 load_dotenv()
@@ -87,8 +88,20 @@ def create_rag_chain(vectorstore):
     
     # Create prompt template
     prompt = PromptTemplate(
-        input_variables=["retrieved_content", "question"],
-        template="Based on the following retrieved content, answer the question: {retrieved_content}. If you don't know the answer, just say 'I don't know'.\n\nQuestion:\n{question}\n\nAnswer:"
+        input_variables=["retrieved_content", "chat_history", "question"],
+        template="""You are a helpful AI assistant answering questions based on a YouTube video transcript.
+        
+Using the transcript context and previous conversation history provided below, answer the user's question.
+If the answer isn't in the transcript, use the conversation history to maintain context (e.g., if the user asks 'who is he?' referring to someone mentioned earlier).
+
+Transcript Context:
+{retrieved_content}
+
+Previous Conversation:
+{chat_history}
+
+Question: {question}
+Answer:"""
     )
     
     # Helper function to format documents
@@ -98,8 +111,9 @@ def create_rag_chain(vectorstore):
     
     # Create parallel chain for retrieval
     parallel_chain = RunnableParallel({
-        "retrieved_content": retriever | RunnableLambda(format_doc),
-        "question": RunnablePassthrough()
+        "retrieved_content": itemgetter("question") | retriever | RunnableLambda(format_doc),
+        "chat_history": itemgetter("chat_history"),
+        "question": itemgetter("question")
     })
     
     # Create output parser
@@ -110,19 +124,34 @@ def create_rag_chain(vectorstore):
     return main_chain
 
 
-def answer_question(chain, question):
+def answer_question(chain, question, chat_history_str):
     """
     Get answer from RAG chain.
     
     Args:
         chain: The RAG chain
         question (str): User's question
+        chat_history_str (str): Formatted chat history
         
     Returns:
         str: AI-generated answer
     """
-    answer = chain.invoke(question)
+    answer = chain.invoke({"question": question, "chat_history": chat_history_str})
     return answer
+
+
+def format_chat_history(history_list):
+    """Format history list into a string for the prompt."""
+    if not history_list:
+        return "No previous conversation."
+    
+    formatted = ""
+    # Only take last 5 turns to avoid context overflow
+    for msg in history_list[-10:]: 
+        role = "User" if msg.get('role') == 'user' else "AI"
+        content = msg.get('content', '')
+        formatted += f"{role}: {content}\n"
+    return formatted
 
 
 # Cache for vectorstores (video_id -> vectorstore)
@@ -147,24 +176,31 @@ def get_or_create_vectorstore(video_id):
     return _vectorstore_cache[video_id]
 
 
-def chat_with_video(video_id, question):
+def chat_with_video(video_id, question, chat_history=None):
     """
     Main function to chat with a YouTube video.
     
     Args:
         video_id (str): YouTube video ID
         question (str): User's question
+        chat_history (list): List of previous messages
         
     Returns:
         str: AI-generated answer
     """
+    if chat_history is None:
+        chat_history = []
+
     # Get or create vectorstore
     vectorstore = get_or_create_vectorstore(video_id)
     
     # Create RAG chain
     chain = create_rag_chain(vectorstore)
     
+    # Format history
+    chat_history_str = format_chat_history(chat_history)
+    
     # Get answer
-    answer = answer_question(chain, question)
+    answer = answer_question(chain, question, chat_history_str)
     
     return answer

@@ -8,6 +8,7 @@ let messagesContainer = null;
 let inputField = null;
 let sendButton = null;
 let isOpen = false;
+let chatHistory = []; // Stores { role: "user" | "bot", content: "text" }
 
 // Extract video ID from YouTube URL
 function getVideoId() {
@@ -185,6 +186,12 @@ function addMessage(text, isUser = false) {
 
     messagesContainer.appendChild(messageDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Add to internal history
+    chatHistory.push({
+        role: isUser ? 'user' : 'bot',
+        content: text
+    });
 }
 
 // Show loading indicator
@@ -269,7 +276,8 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 video_id: videoId,
-                question: question
+                question: question,
+                history: chatHistory
             })
         });
 
@@ -325,7 +333,8 @@ setInterval(() => {
     const currentVideoId = getVideoId();
     if (currentVideoId && currentVideoId !== lastVideoId) {
         lastVideoId = currentVideoId;
-        // Clear messages when video changes
+        // Clear messages and history when video changes
+        chatHistory = [];
         if (messagesContainer) {
             messagesContainer.innerHTML = `
                 <div class="yt-chatbot-welcome">
