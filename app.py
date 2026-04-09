@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from chatbot_engine import chat_with_video
 import traceback
+import os
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Chrome extension
@@ -42,6 +43,7 @@ def chat():
         
         video_id = data.get('video_id')
         question = data.get('question')
+        history = data.get('history', [])
         
         # Validate input
         if not video_id:
@@ -57,7 +59,7 @@ def chat():
             }), 400
         
         # Get answer from chatbot
-        answer = chat_with_video(video_id, question)
+        answer = chat_with_video(video_id, question, history)
         
         return jsonify({
             "answer": answer,
@@ -88,4 +90,5 @@ if __name__ == '__main__':
     print("🚀 Starting YouTube Chatbot API...")
     print("📡 Server running on http://localhost:5000")
     print("💡 Use POST /api/chat to ask questions about YouTube videos")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(debug=debug_mode, host='127.0.0.1', port=5000)

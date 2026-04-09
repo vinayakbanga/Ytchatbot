@@ -112,6 +112,21 @@ Ytchatbotchromeext/
 └── venv/                   # Virtual environment
 ```
 
+## 🔐 Security Features
+
+- **Prompt Injection Detection**: Robust regex-based blocklist to identify and neutralize malicious instructions.
+- **Context Leakage Prevention**: Prevents the LLM from dumping internal transcript data or system prompts.
+- **Output Guardrails**: Enforces English-only responses and strict adherence to provided context.
+- **Input Sanitization**: Pre-processes user queries to strip common attack patterns.
+- **Secure Prompt Design**: Uses XML-style delimiters (`<user_question>`) and hardened system instructions to separate data from commands.
+- **SAST (Static Analysis)**: Regular scanning with Semgrep to ensure code safety and best practices.
+
+## 🧪 Security Testing
+
+- **Performed DAST**: Manual attack testing against the live Flask API endpoints.
+- **Jailbreak Testing**: Validated defenses against "ignore previous instructions" and system prompt extraction attacks.
+- **Compliance**: Verified against OWASP Top 10 security standards using specialized Semgrep rules.
+
 ## 🛠️ Technical Details
 
 ### Backend Stack:
